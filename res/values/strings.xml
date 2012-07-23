@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NiceXmlBackup</string>
+    <string name="title1">目标文件</string>
+    <string name="title2">选项</string>
+    <string name="title3">操作</string>
+    <string name="browse_title">浏览…</string>
+    <string name="sms_title">短信</string>
+    <string name="contacts_title">联系人</string>
+    <string name="callrecords_title">通话记录</string>
+    <string name="backup_title">备份</string>
+    <string name="restore_title">恢复</string>
+    <string name="filetarget_hint">点击“浏览”按钮确定目标文件</string>
+    <string name="main_title">简易Xml备份器</string>
+    <string name="folder_prefix">[文件夹]</string>
+    <string name="choose_title">请输入新文件名，或从列表中选择一个文件</string>
+    <string name="ok_title">确定</string>
+    <string name="filename_hint">请输入文件名</string>
+    <string name="filechooser_title">选择文件…</string>
+    <string name="author_info">作者：DJun，http://weibo.com/djunxp，2012-7-23</string>
+
+</resources>
