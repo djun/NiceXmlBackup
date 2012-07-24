@@ -15,6 +15,7 @@ public class Main extends Application {
 		super.onCreate();
 	}
 
+	// 显示开发提示信息
 	public void showDevelopingMessage(Context context) {
 		Dialog dialog = new AlertDialog.Builder(context)
 				.setTitle(getString(R.string.hint_title))
