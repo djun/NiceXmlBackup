@@ -46,10 +46,12 @@ public final class R {
         public static final int callrecords_title=0x7f040007;
         public static final int choose_title=0x7f04000d;
         public static final int contacts_title=0x7f040006;
+        public static final int developing_msg=0x7f040013;
         public static final int filechooser_title=0x7f040010;
         public static final int filename_hint=0x7f04000f;
         public static final int filetarget_hint=0x7f04000a;
         public static final int folder_prefix=0x7f04000c;
+        public static final int hint_title=0x7f040012;
         public static final int main_title=0x7f04000b;
         public static final int ok_title=0x7f04000e;
         public static final int restore_title=0x7f040009;

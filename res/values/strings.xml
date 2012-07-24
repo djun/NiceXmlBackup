@@ -18,5 +18,7 @@
     <string name="filename_hint">请输入文件名</string>
     <string name="filechooser_title">选择文件…</string>
     <string name="author_info">作者：DJun，http://weibo.com/djunxp，2012-7-23</string>
+    <string name="hint_title">温馨提示</string>
+    <string name="developing_msg">功能尚在开发之中，敬请期待～</string>
 
 </resources>
