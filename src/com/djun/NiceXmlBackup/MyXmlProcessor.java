@@ -13,22 +13,32 @@ import org.xmlpull.v1.XmlPullParserException;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
+import android.telephony.SmsManager;
+import android.telephony.SmsMessage;
+import android.util.Xml;
 
 public class MyXmlProcessor {
 
 	private Context mContext;
+	private ContentResolver mResolver;
 	private Handler mHandler;
 	private ProgressDialog progressDialog;
 
 	private XmlPullParser parser = null;
 	private FileInputStream fIS = null;
 
+	private ContentValues values = null;
+
 	// for xml
 	private int tagState = STATE_NONE;
+	private int folderId = 0;
 	private boolean inItem = false;
 	static final int STATE_NONE = 100;
 	static final int STATE_SMSS = 101;
@@ -42,6 +52,7 @@ public class MyXmlProcessor {
 	// static final String TAG_OPTION="options";
 	static final String TAG_ITEM = "item";
 	// ---smss
+	static final String ATTR_FOLDERID = "folderid";
 	static final String TAG_SENDER = "sender"; // name+number
 	static final String TAG_RECEIVER = "receiver"; // name+number
 	static final String TAG_MSGCLASS = "msgClass"; // 只处理短信类：IPM.SMStext
@@ -72,6 +83,29 @@ public class MyXmlProcessor {
 	static final String TAG_CONNECTED = "connected";
 	static final String TAG_NUMBER = "number"; // name+number
 
+	// for system content
+	static final String SMS_URI_ALL = "content://sms/";
+	static final String SMS_URI_INBOX = "content://sms/inbox";
+	static final String SMS_URI_SENT = "content://sms/sent";
+	static final String SMS_URI_DRAFT = "content://sms/draft";
+	static final String SMS_URI_OUTBOX = "content://sms/outbox";
+	static final String SMS_URI_FAILED = "content://sms/failed";
+	static final String SMS_URI_QUEUED = "content://sms/queued";
+	static final String COL_ADDRESS = "address";
+	static final String COL_DATE = "date";
+	static final String COL_TYPE = "type";
+	static final String COL_BODY = "body";
+	static final String COL_PROTOCOL = "protocol";
+	static final String COL_READ = "read";
+	static final String COL_SEEN = "seen";
+	static final int TYPE_ALL = 0;
+	static final int TYPE_INBOX = 1;
+	static final int TYPE_SENT = 2;
+	static final int TYPE_DRAFT = 3;
+	static final int TYPE_OUTBOX = 4;
+	static final int TYPE_FAILED = 5;
+	static final int TYPE_QUEUED = 6;
+
 	// for dialog
 	static final int CREATE_PROGRESS_DIALOG = 1;
 	static final int UPDATE_PROGRESS = 2;
@@ -80,6 +114,7 @@ public class MyXmlProcessor {
 
 	MyXmlProcessor(Context context) {
 		this.mContext = context;
+		mResolver = mContext.getContentResolver();
 		init();
 	}
 
@@ -112,6 +147,7 @@ public class MyXmlProcessor {
 	public void readyToReadXmlFile(String fileFullName) {
 		try {
 			fIS = new FileInputStream(fileFullName);
+			parser = Xml.newPullParser();
 			parser.setInput(fIS, "UTF-8");
 		} catch (FileNotFoundException e) {
 			// e.printStackTrace();
@@ -140,6 +176,7 @@ public class MyXmlProcessor {
 					case STATE_SMSS:
 						if (TAG_ITEM.equals(parser.getName())) {
 							sItem.resetData();
+							inItem = true;
 						} else if (TAG_SENDER.equals(parser.getName())) {
 							sItem.sender = formatTargetNumber(parser.nextText());
 						} else if (TAG_RECEIVER.equals(parser.getName())) {
@@ -165,12 +202,14 @@ public class MyXmlProcessor {
 					case STATE_CONTACT:
 						if (TAG_ITEM.equals(parser.getName())) {
 							cItem.resetData();
+							inItem = true;
 						}
 						// TODO 未完成
 						break;
 					case STATE_CALLLOG:
 						if (TAG_ITEM.equals(parser.getName())) {
 							clItem.resetData();
+							inItem = true;
 						} else if (TAG_STARTTIME.equals(parser.getName())) {
 							clItem.startTime = formatDateString(parser
 									.nextText());
@@ -198,6 +237,15 @@ public class MyXmlProcessor {
 						break;
 					case STATE_NONE:
 						if (TAG_SMSS.equals(parser.getName())) {
+							final int count = parser.getAttributeCount();
+							for (int i = 0; i < count; ++i) {
+								if (ATTR_FOLDERID.equals(parser
+										.getAttributeName(i))) {
+									folderId = Integer.parseInt(parser
+											.getAttributeValue(i));
+									break;
+								}
+							}
 							tagState = STATE_SMSS;
 						} else if (TAG_CONTACT.equals(parser.getName())) {
 							tagState = STATE_CONTACT;
@@ -217,6 +265,27 @@ public class MyXmlProcessor {
 							// TODO 提交数据到对应区
 							switch (tagState) {
 							case STATE_SMSS:
+								// debug
+								System.out.println("SMS---");
+								if (sItem.sender != null)
+									System.out.println("sender: "
+											+ sItem.sender);
+								if (sItem.receiver != null)
+									System.out.println("receiver: "
+											+ sItem.receiver);
+								if (sItem.msgClass != null)
+									System.out.println("msgClass: "
+											+ sItem.msgClass);
+								if (sItem.subject != null)
+									System.out.println("subject: "
+											+ sItem.subject);
+								if (sItem.deliverTime != null)
+									System.out.println("deliverTime: "
+											+ sItem.deliverTime.toString());
+								if (sItem.lastModifyTime != null)
+									System.out.println("lastModifyTime: "
+											+ sItem.lastModifyTime.toString());
+								insertSmssRecord(sItem);
 								break;
 							case STATE_CONTACT:
 								break;
@@ -272,7 +341,8 @@ public class MyXmlProcessor {
 
 	// 用于格式化短信中的发送者、接收者等字串，提取其中的号码信息
 	public String formatTargetNumber(String str) {
-		return null;
+		// TODO test
+		return str;
 	}
 
 	// 用于格式化日期时间字串
@@ -288,6 +358,62 @@ public class MyXmlProcessor {
 		}
 
 		return date;
+	}
+
+	// 增加短信记录
+	public boolean insertSmssRecord(SmssItem item) {
+		if (values == null) {
+			values = new ContentValues();
+		}
+		values.clear();
+
+		if (item.folderId == SmssItem.FID_INBOX)
+			values.put(COL_ADDRESS, item.sender);
+		else
+			values.put(COL_ADDRESS, item.receiver);
+		values.put(COL_BODY, item.subject);
+		if (item.folderId == SmssItem.FID_DRAFT)
+			values.put(COL_DATE, String.valueOf(item.lastModifyTime.getTime()));
+		else
+			values.put(COL_DATE, String.valueOf(item.deliverTime.getTime()));
+		values.put(COL_PROTOCOL, "0"); // SMS
+		values.put(COL_READ, "1"); // read
+		values.put(COL_SEEN, "1"); // seen
+		if (item.folderId == SmssItem.FID_INBOX){
+			values.put(COL_TYPE, String.valueOf(TYPE_INBOX));
+			mResolver.insert(Uri.parse(SMS_URI_INBOX), values);
+		} else if (item.folderId == SmssItem.FID_SENT){
+			values.put(COL_TYPE, String.valueOf(TYPE_SENT));
+			mResolver.insert(Uri.parse(SMS_URI_SENT), values);
+		} else if (item.folderId == SmssItem.FID_DRAFT){
+			values.put(COL_TYPE, String.valueOf(TYPE_DRAFT));
+			mResolver.insert(Uri.parse(SMS_URI_DRAFT), values);
+		} else{
+			values.put(COL_TYPE, String.valueOf(TYPE_ALL));
+			mResolver.insert(Uri.parse(SMS_URI_ALL), values);
+		}
+
+		return false;
+	}
+
+	// 增加短信记录
+	public boolean insertContactRecord(ContactItem item) {
+		if (values == null) {
+			values = new ContentValues();
+		}
+		values.clear();
+
+		return false;
+	}
+
+	// 增加短信记录
+	public boolean insertCallLogRecord(CallLogItem item) {
+		if (values == null) {
+			values = new ContentValues();
+		}
+		values.clear();
+
+		return false;
 	}
 
 	// 创建进度对话框
@@ -330,6 +456,7 @@ public class MyXmlProcessor {
 	// 信息项
 	class SmssItem {
 		// TODO
+		int folderId;
 		String sender;
 		String receiver;
 		String msgClass;
@@ -337,16 +464,20 @@ public class MyXmlProcessor {
 		Date deliverTime;
 		Date lastModifyTime;
 
+		static final int FID_INBOX = 0;
+		static final int FID_SENT = 2;
+		static final int FID_DRAFT = 4;
 		static final String IPM_SMSTEXT = "IPM.SMStext";
 
 		// 重置数据
 		public void resetData() {
+			folderId = FID_INBOX;
 			sender = null;
 			receiver = null;
 			msgClass = null;
 			subject = null;
-			deliverTime.setTime(0);
-			lastModifyTime.setTime(0);
+			deliverTime = null;
+			lastModifyTime = null;
 		}
 	}
 
@@ -372,8 +503,8 @@ public class MyXmlProcessor {
 		// 重置数据
 		public void resetData() {
 			number = null;
-			startTime.setTime(0);
-			endTime.setTime(0);
+			startTime = null;
+			endTime = null;
 			outGoing = false;
 			connected = false;
 		}

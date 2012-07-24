@@ -77,7 +77,9 @@ public class MainActivity extends Activity {
 		btnRestore.setOnClickListener(new View.OnClickListener() {
 			public void onClick(View v) {
 				// TODO
-				main.showDevelopingMessage(mContext);
+				final MyXmlProcessor xmlProcessor=new MyXmlProcessor(mContext);
+				xmlProcessor.readyToReadXmlFile(targetFile);
+				xmlProcessor.processingReadingXmlFile();
 			}
 		});
 	}
