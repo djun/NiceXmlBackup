@@ -93,10 +93,13 @@ public class MyXmlProcessor {
 	static final String SMS_URI_QUEUED = "content://sms/queued";
 	static final String COL_ADDRESS = "address";
 	static final String COL_DATE = "date";
+	// static final String COL_DATE2 = "date2";
 	static final String COL_TYPE = "type";
 	static final String COL_BODY = "body";
 	static final String COL_PROTOCOL = "protocol";
 	static final String COL_READ = "read";
+	static final String COL_STATUS = "status";
+	static final String COL_LOCKED = "locked";
 	static final String COL_SEEN = "seen";
 	static final int TYPE_ALL = 0;
 	static final int TYPE_INBOX = 1;
@@ -176,6 +179,7 @@ public class MyXmlProcessor {
 					case STATE_SMSS:
 						if (TAG_ITEM.equals(parser.getName())) {
 							sItem.resetData();
+							sItem.folderId = folderId;
 							inItem = true;
 						} else if (TAG_SENDER.equals(parser.getName())) {
 							sItem.sender = formatTargetNumber(parser.nextText());
@@ -233,7 +237,7 @@ public class MyXmlProcessor {
 							clItem.number = formatTargetNumber(parser
 									.nextText());
 						}
-
+						// TODO 未测试
 						break;
 					case STATE_NONE:
 						if (TAG_SMSS.equals(parser.getName())) {
@@ -341,8 +345,13 @@ public class MyXmlProcessor {
 
 	// 用于格式化短信中的发送者、接收者等字串，提取其中的号码信息
 	public String formatTargetNumber(String str) {
-		// TODO test
-		return str;
+		String rtStr = str;
+		final int ltIndex = str.lastIndexOf("<");
+		final int gtIndex = str.lastIndexOf(">");
+		if (ltIndex >= 0 && gtIndex >= 0) {
+			rtStr = str.substring(ltIndex + 1, gtIndex);
+		}
+		return rtStr;
 	}
 
 	// 用于格式化日期时间字串
@@ -367,33 +376,52 @@ public class MyXmlProcessor {
 		}
 		values.clear();
 
-		if (item.folderId == SmssItem.FID_INBOX)
+		// address
+		if (item.folderId == SmssItem.FID_INBOX) {
 			values.put(COL_ADDRESS, item.sender);
-		else
+		} else {
 			values.put(COL_ADDRESS, item.receiver);
+		}
 		values.put(COL_BODY, item.subject);
-		if (item.folderId == SmssItem.FID_DRAFT)
+		// date
+		if (item.folderId == SmssItem.FID_DRAFT) {
 			values.put(COL_DATE, String.valueOf(item.lastModifyTime.getTime()));
-		else
+			// values.put(COL_DATE2,
+			// String.valueOf(item.lastModifyTime.getTime()));
+		} else {
 			values.put(COL_DATE, String.valueOf(item.deliverTime.getTime()));
-		values.put(COL_PROTOCOL, "0"); // SMS
-		values.put(COL_READ, "1"); // read
-		values.put(COL_SEEN, "1"); // seen
-		if (item.folderId == SmssItem.FID_INBOX){
+			// values.put(COL_DATE2,
+			// String.valueOf(item.deliverTime.getTime()));
+		}
+		// protocol
+		values.put(COL_PROTOCOL, "0"); // protocol=SMS
+		// read
+		values.put(COL_READ, "1"); // read=true
+		// status
+		values.put(COL_STATUS, "-1"); // status=-1
+		// locked
+		values.put(COL_LOCKED, "0"); // locked=false
+		// seen
+		values.put(COL_SEEN, "1"); // seen=true
+		// type
+		if (item.folderId == SmssItem.FID_INBOX) {
 			values.put(COL_TYPE, String.valueOf(TYPE_INBOX));
 			mResolver.insert(Uri.parse(SMS_URI_INBOX), values);
-		} else if (item.folderId == SmssItem.FID_SENT){
+		} else if (item.folderId == SmssItem.FID_SENT) {
 			values.put(COL_TYPE, String.valueOf(TYPE_SENT));
 			mResolver.insert(Uri.parse(SMS_URI_SENT), values);
-		} else if (item.folderId == SmssItem.FID_DRAFT){
+		} else if (item.folderId == SmssItem.FID_DRAFT) {
 			values.put(COL_TYPE, String.valueOf(TYPE_DRAFT));
 			mResolver.insert(Uri.parse(SMS_URI_DRAFT), values);
-		} else{
+		} else {
 			values.put(COL_TYPE, String.valueOf(TYPE_ALL));
 			mResolver.insert(Uri.parse(SMS_URI_ALL), values);
 		}
 
 		return false;
+		// 备注
+		// 必须处理：address date (date2) protocol read status body locked seen
+		// 待研究：thread_id toa person date_sent sc_toa service_center (sim_slot)
 	}
 
 	// 增加短信记录
@@ -418,22 +446,26 @@ public class MyXmlProcessor {
 
 	// 创建进度对话框
 	private void createProgressDialog() {
-		// TODO
+		progressDialog = new ProgressDialog(mContext);
+		progressDialog.setCancelable(false);
 	}
 
 	// 设置进度对话框进度值
 	private void setProgress(int value) {
-		// TODO
+		progressDialog.setProgress(value);
 	}
 
 	// 设置进度对话框提示文字
 	private void setProgressText(String text) {
-		// TODO
+		progressDialog.setMessage(text);
 	}
 
 	// 取消进度对话框
 	private void dismissProgressDialog() {
-		// TODO
+		if (progressDialog != null) {
+			progressDialog.dismiss();
+			progressDialog = null;
+		}
 	}
 
 	// 显示对话框提示
